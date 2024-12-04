@@ -1,0 +1,220 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Clinic {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(40)
+  phone     String?   @db.VarChar(15)
+  address   String?   @db.VarChar(50)
+  manager   String?   @db.VarChar(50)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // No need for @default(null)
+
+  rooms           Room[]
+  clinicEmployees ClinicEmployee[]
+  appointments    Appointment[]
+}
+
+model Room {
+  id        Int      @id @default(autoincrement())
+  clinicId  Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic       Clinic?       @relation(fields: [clinicId], references: [id])
+  appointments Appointment[]
+}
+
+model User {
+  id        Int       @id @default(autoincrement())
+  username  String    @unique @db.VarChar(50)
+  password  String    @db.VarChar(100)
+  role      Role
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // No need for @default(null)
+
+  employees Employee[]
+}
+
+enum Role {
+  Admin
+  Doctor
+  Employee
+}
+
+model Employee {
+  id          Int       @id @default(autoincrement())
+  userId      Int?
+  firstName   String    @db.VarChar(25)
+  lastName    String    @db.VarChar(100)
+  dateOfBirth DateTime?
+  socialId    String?   @db.VarChar(100)
+  phone1      String?   @db.VarChar(15)
+  phone2      String?   @db.VarChar(15)
+  email       String?   @unique @db.VarChar(100)
+  jobPosition String?   @db.VarChar(30)
+  gender      Gender?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? // No need for @default(null)
+
+  user             User?             @relation(fields: [userId], references: [id])
+  clinicEmployees  ClinicEmployee[]
+  doctor           Doctor?
+  appointments     Appointment[]
+  cancellationLogs CancellationLog[]
+}
+
+enum Gender {
+  Male
+  Female
+}
+
+model ClinicEmployee {
+  clinicId     Int
+  employeeId   Int
+  roleInClinic RoleInClinic
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  clinic   Clinic   @relation(fields: [clinicId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@id([clinicId, employeeId])
+}
+
+enum RoleInClinic {
+  Manager
+  Staff
+}
+
+model Doctor {
+  id             Int       @id @default(autoincrement())
+  employeeId     Int       @unique
+  license        String    @unique @db.VarChar(255)
+  specialization String?   @db.VarChar(150)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  deletedAt      DateTime?
+
+  employee     Employee      @relation(fields: [employeeId], references: [id])
+  appointments Appointment[]
+}
+
+model Patient {
+  id          Int       @id @default(autoincrement())
+  firstName   String    @db.VarChar(35)
+  lastName    String    @db.VarChar(100)
+  dateOfBirth DateTime?
+  email       String?   @unique @db.VarChar(100)
+  phone1      String?   @db.VarChar(15)
+  phone2      String?   @db.VarChar(15)
+  gender      Gender?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime? // No need for @default(null)
+
+  appointments Appointment[]
+}
+
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  appointmentDate DateTime
+  appointmentTime DateTime
+  employeeId      Int?
+  doctorId        Int?
+  patientId       Int?
+  clinicId        Int?
+  roomId          Int?
+  status          AppointmentStatus
+  arrivalTime     DateTime?
+  completedTime   DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  employee         Employee?         @relation(fields: [employeeId], references: [id])
+  doctor           Doctor?           @relation(fields: [doctorId], references: [id])
+  patient          Patient?          @relation(fields: [patientId], references: [id])
+  clinic           Clinic?           @relation(fields: [clinicId], references: [id])
+  room             Room?             @relation(fields: [roomId], references: [id])
+  invoices         Invoice[]
+  cancellationLogs CancellationLog[] // Added reverse relation
+}
+
+enum AppointmentStatus {
+  Scheduled
+  Completed
+  Canceled
+}
+
+model Exercise {
+  id        Int       @id @default(autoincrement())
+  name      String    @db.VarChar(255)
+  details   String?
+  fees      Decimal
+  tools     String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // No need for @default(null)
+
+  invoices ExerciseInvoice[]
+}
+
+model Invoice {
+  id            Int           @id @default(autoincrement())
+  appointmentId Int
+  exerciseId    Int?
+  amount        Decimal
+  status        InvoiceStatus
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  appointment Appointment       @relation(fields: [appointmentId], references: [id])
+  exercises   ExerciseInvoice[]
+}
+
+enum InvoiceStatus {
+  Pending
+  Paid
+  Canceled
+}
+
+model CancellationLog {
+  id            Int       @id @default(autoincrement())
+  employeeId    Int
+  appointmentId Int
+  action        String    @db.VarChar(255)
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  employee    Employee    @relation(fields: [employeeId], references: [id])
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+}
+
+model ExerciseInvoice {
+  invoiceId  Int
+  exerciseId Int
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  invoice  Invoice  @relation(fields: [invoiceId], references: [id])
+  exercise Exercise @relation(fields: [exerciseId], references: [id])
+
+  @@id([invoiceId, exerciseId])
+}
